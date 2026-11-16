@@ -1,43 +1,41 @@
-// Skywhale — entry for make.fun's ai-excited-01 competition.
-// Node 22, standard library only.
+// Skywhale — ai-excited-01 entry (Node 22, standard library only).
 //
-// The image lives next to this file as entry.png (a JPEG in spite of the
-// name — the competition tells PNG and JPEG apart by their first bytes).
-// This program's whole job is to place an exact copy of it at
-// <output>/entry.png, where <output> is /output inside the grader's
-// container and MAKEFUN_OUTPUT_DIR when run anywhere else:
+// The entry image lives beside this file as entry.png. This program's whole
+// job is to place an exact copy of it at <output>/entry.png, where the
+// grader looks. It runs in a fresh container with no network, a read-only
+// copy of this repository and a writable /output; outside that container,
+// MAKEFUN_OUTPUT_DIR stands in for /output:
 //
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 //
-// After copying, it checks the copy is real: the file must exist and must
-// not be empty. If anything goes wrong the program fails loudly instead
-// of silently handing the grader a broken entry.
+// The image is a JPEG in a file named entry.png — the gate tells PNG from
+// JPEG by the first bytes, not the extension, so the name is fine. The copy
+// is byte-for-byte, which is what the judge needs: it sees exactly the bytes
+// in the file, nothing more, nothing less.
 
 import { copyFileSync, mkdirSync, statSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// The directory this file was loaded from, so the image is found no
-// matter which working directory the program is started from.
-const entryDir = dirname(fileURLToPath(import.meta.url));
-const sourceImage = join(entryDir, 'entry.png');
+// The image shipped in this repository, resolved next to this program.
+const source = fileURLToPath(new URL('./entry.png', import.meta.url));
 
-// Where the finished image goes: the grader's /output, or the override
-// the competition's own instructions use for local runs.
+// Where the grader reads the image from: /output inside the container,
+// or MAKEFUN_OUTPUT_DIR when running locally for a check.
 const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
-const targetImage = join(outputDir, 'entry.png');
+const destination = join(outputDir, 'entry.png');
 
-// The output directory may not exist yet (local runs use a fresh `out/`).
+// Make sure the output directory exists before copying into it.
 mkdirSync(outputDir, { recursive: true });
 
-// Copy the image byte for byte — the judge sees exactly these bytes.
-copyFileSync(sourceImage, targetImage);
+// Copy the image byte for byte.
+copyFileSync(source, destination);
 
-// Guard against a truncated or empty copy: a zero-byte file would fail
-// the gate, so refuse to finish quietly if that ever happened.
-const copied = statSync(targetImage);
+// Refuse to pass an empty file on: a zero-byte entry would fail the gate.
+const copied = statSync(destination);
 if (copied.size === 0) {
-  throw new Error(`entry.png copy came out empty: ${targetImage}`);
+  throw new Error(`entry.png copy is empty: ${destination}`);
 }
 
-console.log(`wrote ${targetImage} (${copied.size} bytes)`);
+// A quiet confirmation for the local run; the grader ignores stdout.
+console.log(`Wrote ${destination} (${copied.size} bytes)`);
